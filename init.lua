@@ -1,5 +1,8 @@
 package.path = package.path .. ";/usr/local/share/lua/5.1/?.lua"
 package.cpath = package.cpath .. ";/usr/local/lib/lua/5.1/?.so"
+vim.api.nvim_create_user_command("BedrockKeys", function(opts)
+  require("bedrock_keys").set_bedrock_keys(opts.args ~= "" and opts.args or nil)
+end, { nargs = "?" })
 require("config.lazy")
 vim.cmd.colorscheme("catppuccin-mocha")
 

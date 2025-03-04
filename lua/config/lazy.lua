@@ -29,24 +29,47 @@ require("lazy").setup({
   },
   { "rxi/json.lua" },
   {
+    "pteroctopus/faster.nvim",
+  },
+  {
     "yetone/avante.nvim",
     event = "VeryLazy",
     lazy = false,
-    version = false, -- set this if you want to always pull the latest change
+    version = false,
     opts = {
-      -- add any opts here
+      provider = "bedrock",
+      bedrock = {
+        model = "anthropic.claude-3-5-sonnet-20240620-v1:0",
+        temperature = 0,
+        max_tokens = 8000,
+      },
+      -- You can also customize the behavior settings if needed
+      behaviour = {
+        auto_focus_sidebar = true,
+        minimize_diff = true,
+        enable_token_counting = true,
+        enable_cursor_planning_mode = true,
+        auto_suggestions = true,
+        auto_suggestions_respect_ignore = true,
+        support_paste_from_clipboard = true,
+      },
+      repo_map = {
+        ignore_patterns = { "%.git", "node_modules", "dist" },
+      },
+      negate_patterns = { "%.md$" }, -- include only markdown files
     },
-    -- if you want to build from source then do `make BUILD_FROM_SOURCE=true`
     build = "make",
-    -- build = "powershell -ExecutionPolicy Bypass -File Build.ps1 -BuildFromSource false" -- for windows
     dependencies = {
       "nvim-treesitter/nvim-treesitter",
       "stevearc/dressing.nvim",
       "nvim-lua/plenary.nvim",
       "MunifTanjim/nui.nvim",
-      --- The below dependencies are optional,
       "nvim-tree/nvim-web-devicons", -- or echasnovski/mini.icons
-      "zbirenbaum/copilot.lua", -- for providers='copilot'
+      "echasnovski/mini.pick", -- for file_selector provider mini.pick
+      "nvim-telescope/telescope.nvim", -- for file_selector provider telescope
+      "hrsh7th/nvim-cmp", -- autocompletion for avante commands and mentions
+      "ibhagwan/fzf-lua", -- for file_selector provider fzf
+      "nvim-tree/nvim-web-devicons", -- or echasnovski/mini.icons
       {
         -- support for image pasting
         "HakonHarnes/img-clip.nvim",
@@ -73,6 +96,129 @@ require("lazy").setup({
         ft = { "markdown", "Avante" },
       },
     },
+  },
+
+  -- {
+  --   "yetone/avante.nvim",
+  --   event = "VeryLazy",
+  --   lazy = false,
+  --   version = false, -- set this if you want to always pull the latest change
+  --   opts = {
+  --     provider = "bedrock",
+  --     bedrock = {
+  --       model = "anthropic.claude-3-5-sonnet-20240620-v1:0", -- Claude 3.5 Sonnet model
+  --       timeout = 30000, -- timeout in milliseconds
+  --       temperature = 0, -- adjust if needed
+  --       max_tokens = 8000,
+  --     },
+  --
+  --     -- File selector using FZF
+  --     file_selector = {
+  --       provider = "fzf", -- Using FZF for file selection
+  --       provider_opts = {
+  --         -- Optional FZF-specific options can go here
+  --       },
+  --     },
+  --
+  --     -- Repository mapping configuration
+  --     repo_map = {
+  --       ignore_patterns = { "%.git", "node_modules", "dist" },
+  --       negate_patterns = { "%.md$" }, -- include only markdown files
+  --     },
+  --   },
+  --   build = "make",
+  --   dependencies = {
+  --     "nvim-treesitter/nvim-treesitter",
+  --     "stevearc/dressing.nvim",
+  --     "nvim-lua/plenary.nvim",
+  --     "MunifTanjim/nui.nvim",
+  --     "nvim-tree/nvim-web-devicons", -- or echasnovski/mini.icons
+  --     "echasnovski/mini.pick", -- for file_selector provider mini.pick
+  --     "nvim-telescope/telescope.nvim", -- for file_selector provider telescope
+  --     "hrsh7th/nvim-cmp", -- autocompletion for avante commands and mentions
+  --     "ibhagwan/fzf-lua", -- for file_selector provider fzf
+  --     "nvim-tree/nvim-web-devicons", -- or echasnovski/mini.icons
+  --     {
+  --       -- support for image pasting
+  --       "HakonHarnes/img-clip.nvim",
+  --       event = "VeryLazy",
+  --       opts = {
+  --         -- recommended settings
+  --         default = {
+  --           embed_image_as_base64 = false,
+  --           prompt_for_file_name = false,
+  --           drag_and_drop = {
+  --             insert_mode = true,
+  --           },
+  --           -- required for Windows users
+  --           use_absolute_path = true,
+  --         },
+  --       },
+  --     },
+  --     {
+  --       -- Make sure to set this up properly if you have lazy=true
+  --       "MeanderingProgrammer/render-markdown.nvim",
+  --       opts = {
+  --         file_types = { "markdown", "Avante" },
+  --       },
+  --       ft = { "markdown", "Avante" },
+  --     },
+  --   },
+  -- },
+  {
+    "mfussenegger/nvim-dap",
+    optional = true,
+    dependencies = {
+      {
+        "williamboman/mason.nvim",
+        opts = function(_, opts)
+          opts.ensure_installed = opts.ensure_installed or {}
+          table.insert(opts.ensure_installed, "node-debug2-adapter")
+        end,
+      },
+    },
+    opts = function()
+      local dap = require("dap")
+
+      if not dap.adapters["pwa-node"] then
+        require("dap").adapters["pwa-node"] = {
+          type = "server",
+          host = "localhost",
+          port = "${port}",
+          executable = {
+            command = "node",
+            args = {
+              require("mason-registry").get_package("node-debug2-adapter"):get_install_path()
+                .. "/js-debug/src/dapDebugServer.js",
+              "${port}",
+            },
+          },
+        }
+      end
+
+      for _, language in ipairs({ "typescript", "javascript" }) do
+        if not dap.configurations[language] then
+          dap.configurations[language] = {
+            {
+              type = "pwa-node",
+              request = "launch",
+              name = "Launch file",
+              program = "${file}",
+              cwd = "${workspaceFolder}",
+              sourceMaps = true,
+            },
+            {
+              type = "pwa-node",
+              request = "attach",
+              name = "Attach",
+              processId = require("dap.utils").pick_process,
+              cwd = "${workspaceFolder}",
+              sourceMaps = true,
+            },
+          }
+        end
+      end
+    end,
   },
   { import = "plugins" },
 })
